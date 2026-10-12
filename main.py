@@ -1,8 +1,10 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse 
-
+from database import Base, engine
 
 app = FastAPI()
+
+Base.metadata.create_all(bind=engine)
 
 @app.get('/')
 def welcome():
