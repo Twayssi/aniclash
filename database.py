@@ -1,6 +1,7 @@
+from os import getenv
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
-from os import getenv
 from dotenv import load_dotenv
 
 load_dotenv()
