@@ -3,8 +3,8 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from database import Base, engine, get_db
-from schemas import UserCreate
-from security import hash_password
+from schemas import UserCreate, UserLogin
+from security import hash_password, verify_password
 
 import models
 
@@ -35,6 +35,22 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user_table)
     return {'user_id': user_table.id, 'user_username': user_table.username}
+
+
+@app.post('/login')
+def login(user: UserLogin, db: Session = Depends(get_db)):
+    if '@' in user.identifier:
+        user_entry = db.query(models.User).filter(models.User.email == user.identifier).first()
+    else:
+        user_entry = db.query(models.User).filter(models.User.username == user.identifier).first()
+    if not user_entry:
+        raise HTTPException(status_code=403, detail='Пользователь с указанным никнеймом/ эл. почтой не найден')
+
+    if verify_password(user_entry.hashed_password, user.password):
+        return {'id': user_entry.id, 'username': user_entry.username}
+    else:
+        raise HTTPException(status_code=401, detail='Неверный пароль.')
+
     
 @app.get('/health')
 def health():
