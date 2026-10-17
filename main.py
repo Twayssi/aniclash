@@ -1,12 +1,12 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import HTMLResponse
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from jwt.exceptions import InvalidTokenError
 
 from database import Base, engine, get_db
-from schemas import UserCreate, UserLogin
+from schemas import UserCreate
 from security import hash_password, verify_password, encode_token, decode_token
 
 import models
@@ -44,15 +44,15 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
 
 
 @app.post('/login')
-def login(user: UserLogin, db: Session = Depends(get_db)):
-    if '@' in user.identifier:
-        user_entry = db.query(models.User).filter(models.User.email == user.identifier).first()
+def login(user_form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    if '@' in user_form.username:
+        user_entry = db.query(models.User).filter(models.User.email == user_form.username).first()
     else:
-        user_entry = db.query(models.User).filter(models.User.username == user.identifier).first()
+        user_entry = db.query(models.User).filter(models.User.username == user_form.username).first()
     if not user_entry:
         raise HTTPException(status_code=403, detail='Пользователь с указанным никнеймом/ эл. почтой не найден')
 
-    if verify_password(user_entry.hashed_password, user.password):
+    if verify_password(user_entry.hashed_password, user_form.password):
         token = encode_token(user_id=user_entry.id, username=user_entry.username)
         return {'access_token': token, 'token_type': 'bearer'}
     else:
