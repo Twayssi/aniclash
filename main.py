@@ -8,6 +8,7 @@ from jwt.exceptions import InvalidTokenError
 from database import Base, engine, get_db
 from schemas import UserCreate
 from security import hash_password, verify_password, encode_token, decode_token
+from services import search_anime, get_popular_anime, search_anime_by_id
 
 import models
 
@@ -58,6 +59,7 @@ def login(user_form: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     else:
         raise HTTPException(status_code=401, detail='Неверный пароль.')
 
+
 @app.get('/me')
 def me(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     try:
@@ -68,10 +70,31 @@ def me(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     if user_entry is None:
         raise HTTPException(status_code=404, detail='Пользователь не найден')
     return {'id': user_entry.id, 'username': user_entry.username, 'email': user_entry.email, 'created_at': user_entry.created_at}
-    
-    
 
-    
+
+@app.get('/api/anime/search')
+def get_anime_by_q(q: str, page: int = 1):
+    response = search_anime(query=q, page=page)
+    if 'errors' in response:
+        raise HTTPException(status_code=404, detail='Ошибка запроса')
+    return response
+
+
+@app.get('/api/anime/popular')
+def get_popular(page: int = 1):
+    response = get_popular_anime(page=page)
+    if 'errors' in response:
+        raise HTTPException(status_code=404, detail='Ошибка запроса')
+    return response
+
+
+@app.get('/api/anime/{anime_id}')
+def get_anime_by_id(anime_id: int):
+    response = search_anime_by_id(anime_id)
+    if 'errors' in response:
+        raise HTTPException(status_code=404, detail='Ошибка запроса')
+    return response
+
 @app.get('/health')
 def health():
     return {'status': 'ok'}
