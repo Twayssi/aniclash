@@ -5,12 +5,18 @@ from sqlalchemy.orm import Session
 
 from jwt.exceptions import InvalidTokenError
 
+import datetime
+import secrets
+import json
+
 from database import Base, engine, get_db
-from schemas import UserCreate
+from schemas import UserCreate, RoomCreate
 from security import hash_password, verify_password, encode_token, decode_token
 from services import search_anime, get_popular_anime, search_anime_by_id
+from redis_client import client
 
 import models
+
 
 app = FastAPI()
 
@@ -94,6 +100,29 @@ def get_anime_by_id(anime_id: int):
     if 'errors' in response:
         raise HTTPException(status_code=404, detail='Ошибка запроса')
     return response
+
+
+@app.post('/api/rooms')
+def create_room(room_data: RoomCreate, token: str = Depends(oauth2_scheme)):
+    try:
+        payload = decode_token(token)
+        host_id = payload['sub']
+    except InvalidTokenError:
+        raise HTTPException(status_code=401, detail='Неверный или просроченный токен')
+    room_id = secrets.token_urlsafe(6)
+    room_created_at = datetime.datetime.now().isoformat()
+    room_dict = {   
+        'room_id': room_id,
+        'host_id': int(host_id),
+        'room_name': room_data.room_name,
+        'created_at': room_created_at,
+        'members': [int(host_id)],
+        'current_event': None
+    }
+    room_json = json.dumps(room_dict)
+    client.setex(name=f'room:{room_id}', time=86400, value=room_json)
+    return room_dict
+
 
 @app.get('/health')
 def health():
