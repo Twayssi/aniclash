@@ -8,6 +8,7 @@ from jwt.exceptions import InvalidTokenError
 import datetime
 import secrets
 import json
+import random
 
 from database import Base, engine, get_db
 from schemas import UserCreate, RoomCreate
@@ -122,6 +123,62 @@ def create_room(room_data: RoomCreate, token: str = Depends(oauth2_scheme)):
     room_json = json.dumps(room_dict)
     client.setex(name=f'room:{room_id}', time=86400, value=room_json)
     return room_dict
+
+
+@app.post('/api/rooms/{room_id}/join')
+def join_room(room_id: str, token: str = Depends(oauth2_scheme)):
+    try:
+        payload = decode_token(token)
+        user_id = int(payload['sub'])
+    except InvalidTokenError:
+        raise HTTPException(status_code=401, detail='Неверный или просроченный токен')
+    room_data = client.get(f'room:{room_id}')
+    if room_data is None:
+        raise HTTPException(status_code=404, detail='Комната не найдена')
+    room_dict = json.loads(room_data)
+    if user_id not in room_dict['members']:
+        room_dict['members'].append(user_id)
+    room_json= json.dumps(room_dict)
+    client.setex(name=f'room:{room_id}', time=86400, value=room_json)
+    return room_dict['members']
+
+
+@app.get('/api/rooms/{room_id}/info')
+def get_info(room_id: str):
+    room_data = client.get(f'room:{room_id}')
+    if room_data is None:
+        raise HTTPException(status_code=404, detail='Комната не найдена')
+    room_dict = json.loads(room_data)
+    return room_dict
+    
+
+@app.delete('/api/rooms/{room_id}/leave')
+def leave_room(room_id: str, token: str = Depends(oauth2_scheme)):
+    try:
+        payload = decode_token(token)
+        user_id = int(payload['sub'])
+    except InvalidTokenError:
+        raise HTTPException(status_code=401, detail='Неверный или просроченный токен')
+    room_data = client.get(f'room:{room_id}')
+    if not room_data:
+        raise HTTPException(status_code=404, detail='Комната не найдена')
+    room_dict = json.loads(room_data)
+    if user_id in room_dict['members']:
+        room_dict['members'].remove(user_id)
+        if not room_dict['members']:
+            client.delete(f'room:{room_id}')
+            return {'status': '200', 'message': f'Последний участник покинул комнату {room_id}. Комната удалена.'}
+        else:
+            if room_dict['host_id'] == user_id:
+                room_dict['host_id'] = random.choice(room_dict['members'])
+                message = f'Хост покинул комнату. Новый хост - {room_dict["host_id"]}.'
+            else:
+                message = f'Пользователь {user_id} вышел из комнаты.'
+            room_json = json.dumps(room_dict)
+            client.setex(name=f'room:{room_id}', time=86400, value=room_json)
+            return {'status': '200', 'message': message}
+    else:
+        raise HTTPException(status_code=404, detail='Пользователь не является участником комнаты')
 
 
 @app.get('/health')
