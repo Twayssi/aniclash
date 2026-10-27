@@ -121,7 +121,7 @@ def create_room(room_data: RoomCreate, token: str = Depends(oauth2_scheme)):
         'current_event': None
     }
     room_json = json.dumps(room_dict)
-    client.setex(name=f'room:{room_id}', time=86400, value=room_json)
+    client.set(name=f'room:{room_id}', ex=86400, value=room_json)
     return room_dict
 
 
@@ -139,7 +139,7 @@ def join_room(room_id: str, token: str = Depends(oauth2_scheme)):
     if user_id not in room_dict['members']:
         room_dict['members'].append(user_id)
     room_json= json.dumps(room_dict)
-    client.setex(name=f'room:{room_id}', time=86400, value=room_json)
+    client.set(name=f'room:{room_id}', ex=86400, value=room_json)
     return room_dict['members']
 
 
@@ -175,7 +175,7 @@ def leave_room(room_id: str, token: str = Depends(oauth2_scheme)):
             else:
                 message = f'Пользователь {user_id} вышел из комнаты.'
             room_json = json.dumps(room_dict)
-            client.setex(name=f'room:{room_id}', time=86400, value=room_json)
+            client.set(name=f'room:{room_id}', ex=86400, value=room_json)
             return {'status': '200', 'message': message}
     else:
         raise HTTPException(status_code=404, detail='Пользователь не является участником комнаты')
