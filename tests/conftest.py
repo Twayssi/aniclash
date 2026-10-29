@@ -50,4 +50,4 @@ def create_room(client, user_factory):
     host_token = user_factory()['user_token']
     response =  client.post(url='/api/rooms', headers={'Authorization': f'Bearer {host_token}'}, json={'room_name': 'test_room'})
     created_room_dict = response.json()
-    yield {'room_id': created_room_dict['room_id'], 'host_id': created_room_dict['host_id'], 'host_token': host_token}
+    yield {'room_id': created_room_dict['room_id'], 'host_id': created_room_dict['host_id'], 'host_token': host_token, 'max_members': created_room_dict['max_members']}

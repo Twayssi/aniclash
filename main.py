@@ -118,7 +118,8 @@ def create_room(room_data: RoomCreate, token: str = Depends(oauth2_scheme)):
         'room_name': room_data.room_name,
         'created_at': room_created_at,
         'members': [int(host_id)],
-        'current_event': None
+        'current_event': None,
+        'max_members': room_data.max_members
     }
     room_json = json.dumps(room_dict)
     client.set(name=f'room:{room_id}', ex=86400, value=room_json)
@@ -136,7 +137,10 @@ def join_room(room_id: str, token: str = Depends(oauth2_scheme)):
     if room_data is None:
         raise HTTPException(status_code=404, detail='Комната не найдена')
     room_dict = json.loads(room_data)
+   
     if user_id not in room_dict['members']:
+        if len(room_dict['members']) >= room_dict['max_members']:
+            raise HTTPException(status_code=400, detail='Комната переполнена')
         room_dict['members'].append(user_id)
     room_json= json.dumps(room_dict)
     client.set(name=f'room:{room_id}', ex=86400, value=room_json)

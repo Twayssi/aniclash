@@ -7,3 +7,4 @@ class UserCreate(BaseModel):
 
 class RoomCreate(BaseModel):
     room_name: str
+    max_members: int = 8
